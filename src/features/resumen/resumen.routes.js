@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const db = require('../../../database/db');
 
 // Obtener resumen financiero completo para la vista de Resumen / Dashboard
 router.get('/', async (req, res) => {

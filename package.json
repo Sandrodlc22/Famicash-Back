@@ -3,18 +3,30 @@
   "version": "1.0.0",
   "description": "API REST Backend para FamiCash con PostgreSQL",
   "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "setup-db": "node database/setup.js"
   },
-  "keywords": ["finance", "famicash", "postgres", "express", "crud"],
+  "keywords": [
+    "finance",
+    "famicash",
+    "postgres",
+    "express",
+    "crud"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3"
   }
 }

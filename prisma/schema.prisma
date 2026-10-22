@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique @db.VarChar(50)
+  descripcion String?   @db.VarChar(150)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  usuarios    Usuario[]
+
+  @@map("roles")
+}
+
+model Usuario {
+  id           Int       @id @default(autoincrement())
+  rolId        Int?      @map("rol_id")
+  nombre       String    @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  refreshToken String?   @map("refresh_token") @db.Text
+  activo       Boolean?  @default(true)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  rol          Role?     @relation(fields: [rolId], references: [id], onDelete: SetNull)
+  cuentas      CuentaBancaria[]
+
+  @@map("usuarios")
+}
+
+model CuentaBancaria {
+  id              Int       @id @default(autoincrement())
+  usuarioId       Int       @map("usuario_id")
+  nombre          String    @db.VarChar(80)
+  tipo            String    @db.VarChar(30)
+  saldoActual     Decimal?  @default(0.00) @map("saldo_actual") @db.Decimal(12, 2)
+  umbralAlertaPct Int?      @default(80) @map("umbral_alerta_pct")
+  alertaActiva    Boolean?  @default(false) @map("alerta_activa")
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  usuario         Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  presupuestos    Presupuesto[]
+  movimientos     Movimiento[]
+
+  @@index([usuarioId], map: "idx_cuentas_usuario")
+  @@map("cuentas_bancarias")
+}
+
+enum TipoOperacion {
+  GASTO
+  INGRESO
+}
+
+model Categoria {
+  id          Int             @id @default(autoincrement())
+  nombre      String          @db.VarChar(80)
+  tipo        TipoOperacion
+  icono       String          @db.VarChar(50)
+  createdAt   DateTime?       @default(now()) @map("created_at") @db.Timestamptz
+
+  movimientos Movimiento[]
+
+  @@map("categorias")
+}
+
+model Presupuesto {
+  id              Int       @id @default(autoincrement())
+  cuentaId        Int       @map("cuenta_id")
+  periodoMes      DateTime  @map("periodo_mes") @db.Date
+  limiteAsignado  Decimal   @map("limite_asignado") @db.Decimal(12, 2)
+  saldoAnterior   Decimal?  @default(0.00) @map("saldo_anterior") @db.Decimal(12, 2)
+  totalDisponible Decimal   @map("total_disponible") @db.Decimal(12, 2)
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  cuenta          CuentaBancaria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+
+  @@index([periodoMes], map: "idx_presupuestos_periodo")
+  @@map("presupuestos")
+}
+
+model Movimiento {
+  id              BigInt         @id @default(autoincrement())
+  cuentaId        Int            @map("cuenta_id")
+  categoriaId     Int            @map("categoria_id")
+  tipo            TipoOperacion
+  monto           Decimal        @db.Decimal(12, 2)
+  subtipo         String?        @default("Cotidiano") @db.VarChar(30)
+  descripcion     String?        @db.VarChar(255)
+  fechaMovimiento DateTime?      @default(now()) @map("fecha_movimiento") @db.Timestamptz
+  createdAt       DateTime?      @default(now()) @map("created_at") @db.Timestamptz
+
+  cuenta          CuentaBancaria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  categoria       Categoria      @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+
+  @@index([cuentaId], map: "idx_movimientos_cuenta")
+  @@index([categoriaId], map: "idx_movimientos_categoria")
+  @@index([fechaMovimiento(sort: Desc)], map: "idx_movimientos_fecha")
+  @@map("movimientos")
+}

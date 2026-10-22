@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const db = require('../../../database/db');
 
 // Listar categorías (filtro opcional ?tipo=GASTO o ?tipo=INGRESO)
 router.get('/', async (req, res) => {

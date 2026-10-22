@@ -1,12 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import 'dotenv/config';
 
-const authRoutes = require('./routes/auth.routes');
-const cuentasRoutes = require('./routes/cuentas.routes');
-const categoriasRoutes = require('./routes/categorias.routes');
-const movimientosRoutes = require('./routes/movimientos.routes');
-const resumenRoutes = require('./routes/resumen.routes');
+import usuarioRoutes from './features/usuario/usuario.routes.js'
+
+import { errorHandler } from './lib/middleware/error-handler.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,12 +19,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rutas API
-app.use('/api/auth', authRoutes);
-app.use('/api/cuentas', cuentasRoutes);
-app.use('/api/categorias', categoriasRoutes);
-app.use('/api/movimientos', movimientosRoutes);
-app.use('/api/resumen', resumenRoutes);
+// // Rutas API
+// app.use('/api/auth', authRoutes);
+// app.use('/api/cuentas', cuentasRoutes);
+// app.use('/api/categorias', categoriasRoutes);
+// app.use('/api/movimientos', movimientosRoutes);
+// app.use('/api/resumen', resumenRoutes);
+app.use('/api/usuario', usuarioRoutes)
 
 // Ruta de estado / salud
 app.get('/api/health', (req, res) => {
@@ -37,6 +36,8 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`===============================================`);
