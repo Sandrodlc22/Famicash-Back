@@ -6,7 +6,7 @@ import {
   logout,
   me
 } from './auth.controller.js';
-import { authenticateToken } from '../../lib/middleware/auth.middleware.js';
+import { authenticateToken } from './auth.middleware.js';
 
 const router = Router();
 

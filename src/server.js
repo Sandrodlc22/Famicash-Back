@@ -5,6 +5,10 @@ import 'dotenv/config';
 
 import authRoutes from './features/auth/auth.routes.js';
 import usuarioRoutes from './features/usuario/usuario.routes.js';
+import cuentasRoutes from './features/cuentas/cuentas.routes.js';
+import categoriasRoutes from './features/categorias/categorias.routes.js';
+import movimientosRoutes from './features/movimientos/movimientos.routes.js';
+import resumenRoutes from './features/resumen/resumen.routes.js';
 import { errorHandler } from './lib/middleware/error-handler.js';
 
 const app = express();
@@ -39,9 +43,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rutas API
+// Rutas de la API por cada feature
 app.use('/api/auth', authRoutes);
 app.use('/api/usuario', usuarioRoutes);
+app.use('/api/cuentas', cuentasRoutes);
+app.use('/api/categorias', categoriasRoutes);
+app.use('/api/movimientos', movimientosRoutes);
+app.use('/api/resumen', resumenRoutes);
 
 // Ruta de estado / salud
 app.get('/api/health', (req, res) => {

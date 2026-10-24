@@ -1,17 +1,18 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../../../database/db');
+import { Router } from 'express';
+import {
+  getAll,
+  getById,
+  create,
+  update,
+  remove
+} from './categorias.controller.js';
 
-// Listar categorías (filtro opcional ?tipo=GASTO o ?tipo=INGRESO)
-router.get('/', async (req, res) => {
-  try {
-    const { tipo } = req.query;
-    const cats = await db.categorias.listar(tipo);
-    res.json(cats);
-  } catch (err) {
-    console.error('Error listando categorías:', err);
-    res.status(500).json({ error: 'Error al obtener categorías' });
-  }
-});
+const router = Router();
 
-module.exports = router;
+router.get('/', getAll);
+router.get('/:id', getById);
+router.post('/', create);
+router.put('/:id', update);
+router.delete('/:id', remove);
+
+export default router;

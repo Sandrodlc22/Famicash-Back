@@ -1,6 +1,6 @@
-import { AppError } from '../errors/app-error.js';
-import { verifyAccessToken } from '../jwt/jwt.js';
-import { getRoleConfig } from '../../features/auth/role-views.config.js';
+import { AppError } from '../../lib/errors/app-error.js';
+import { verifyAccessToken } from '../../lib/jwt/jwt.js';
+import { getRoleConfig } from './role-views.config.js';
 
 export const authenticateToken = (req, res, next) => {
   // Buscar token en cookies httpOnly o en el header Authorization
