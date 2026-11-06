@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
@@ -8,13 +8,14 @@ import usuarioRoutes from './features/usuario/usuario.routes.js';
 import cuentasRoutes from './features/cuentas/cuentas.routes.js';
 import categoriasRoutes from './features/categorias/categorias.routes.js';
 import movimientosRoutes from './features/movimientos/movimientos.routes.js';
+import presupuestosRoutes from './features/presupuestos/presupuestos.routes.js';
 import resumenRoutes from './features/resumen/resumen.routes.js';
 import { errorHandler } from './lib/middleware/error-handler.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Configuración de orígenes permitidos para CORS con credenciales (cookies HttpOnly)
+// ConfiguraciÃ³n de orÃ­genes permitidos para CORS con credenciales (cookies HttpOnly)
 const allowedOrigins = [
   process.env.CLIENT_URL || 'http://localhost:5173',
   'http://localhost:5173',
@@ -37,18 +38,20 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json());
 
-// Logger simple para depuración
+// Logger simple para depuraciÃ³n
 app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Rutas de la API por cada feature
+// Rutas de la API por cada feature (CRUD completo)
 app.use('/api/auth', authRoutes);
 app.use('/api/usuario', usuarioRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/cuentas', cuentasRoutes);
 app.use('/api/categorias', categoriasRoutes);
 app.use('/api/movimientos', movimientosRoutes);
+app.use('/api/presupuestos', presupuestosRoutes);
 app.use('/api/resumen', resumenRoutes);
 
 // Ruta de estado / salud
@@ -65,7 +68,7 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`===============================================`);
-  console.log(`🚀 FamiCash Backend Server iniciado en el puerto ${PORT}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  console.log(`ðŸš€ FamiCash Backend Server iniciado en el puerto ${PORT}`);
+  console.log(`ðŸ”— API Base URL: http://localhost:${PORT}/api`);
   console.log(`===============================================`);
 });

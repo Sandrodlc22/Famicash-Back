@@ -1,6 +1,8 @@
 import {
   listarMovimientos,
+  obtenerMovimientoPorId,
   crearMovimiento,
+  actualizarMovimiento,
   eliminarMovimiento
 } from './movimientos.service.js';
 
@@ -14,11 +16,32 @@ export const getAll = async (req, res, next) => {
   }
 };
 
+export const getById = async (req, res, next) => {
+  try {
+    const item = await obtenerMovimientoPorId(req.params.id);
+    res.json(item);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const create = async (req, res, next) => {
   try {
     const resultado = await crearMovimiento(req.body);
     res.status(201).json({
       message: 'Movimiento registrado con éxito',
+      ...resultado
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const update = async (req, res, next) => {
+  try {
+    const resultado = await actualizarMovimiento(req.params.id, req.body);
+    res.json({
+      message: 'Movimiento actualizado con éxito',
       ...resultado
     });
   } catch (error) {

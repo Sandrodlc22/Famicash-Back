@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+﻿import bcrypt from 'bcrypt';
 import { prisma } from '../../lib/prisma/prisma.js';
 import { AppError } from '../../lib/errors/app-error.js';
 import {
@@ -12,8 +12,9 @@ import { getRoleConfig } from './role-views.config.js';
  * Sanitiza los datos del usuario para no exponer información sensible
  */
 function sanitizeUser(user, avatar = null) {
-  const roleName = user.rol?.nombre || 'Administrador Familiar';
+  const roleName = user.rol?.nombre || 'Miembro Familiar';
   const roleConfig = getRoleConfig(roleName);
+  const esAdmin = roleName === 'Administrador Familiar' || user.rolId === 1;
 
   return {
     id: user.id,
@@ -21,11 +22,15 @@ function sanitizeUser(user, avatar = null) {
     email: user.email,
     rol: roleName,
     rolId: user.rolId,
+    esAdmin,
     activo: user.activo,
     avatar: avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=256',
     vistasPermitidas: roleConfig.vistasPermitidas,
     vistaInicial: roleConfig.vistaInicial,
-    permisos: roleConfig.permisos,
+    permisos: {
+      ...roleConfig.permisos,
+      esAdmin
+    },
     descripcionRol: roleConfig.descripcion
   };
 }
@@ -57,8 +62,13 @@ export async function registerUser({ nombre, email, password, rol, avatar }) {
     throw new AppError('El correo electrónico ya está registrado.', 400);
   }
 
-  // Resolver o crear el rol seleccionado
-  const roleName = rol?.trim() || 'Administrador Familiar';
+  // Si no se envía rol, asignar 'Miembro Familiar' (salvo que sea el primer usuario del sistema)
+  let roleName = rol?.trim();
+  if (!roleName) {
+    const totalUsuarios = await prisma.usuario.count();
+    roleName = totalUsuarios === 0 ? 'Administrador Familiar' : 'Miembro Familiar';
+  }
+
   let targetRole = await prisma.role.findUnique({
     where: { nombre: roleName }
   });
@@ -90,7 +100,7 @@ export async function registerUser({ nombre, email, password, rol, avatar }) {
     }
   });
 
-  // Si es un Administrador Familiar o Adulto, crear una cuenta inicial por defecto si no tiene cuentas
+  // Si es un Administrador Familiar o Adulto con permisos de cuenta, crear una cuenta inicial por defecto
   const roleConfig = getRoleConfig(targetRole.nombre);
   if (roleConfig.permisos.puedeGestionarCuentas) {
     await prisma.cuentaBancaria.create({
@@ -153,7 +163,7 @@ export async function loginUser({ email, password }) {
     throw new AppError('Credenciales inválidas. Verifica tu correo o contraseña.', 401);
   }
 
-  const roleName = user.rol?.nombre || 'Administrador Familiar';
+  const roleName = user.rol?.nombre || 'Miembro Familiar';
 
   // Generar tokens
   const tokenPayload = {
@@ -204,7 +214,6 @@ export async function refreshUserSession(refreshTokenReceived) {
 
   // Comprobar que coincida con el refresh token activo en BD
   if (user.refreshToken !== refreshTokenReceived) {
-    // Si no coincide, puede haber habido un intento de reutilización de token: invalidar el token en BD por seguridad
     await prisma.usuario.update({
       where: { id: user.id },
       data: { refreshToken: null }
@@ -212,7 +221,7 @@ export async function refreshUserSession(refreshTokenReceived) {
     throw new AppError('Sesión inválida o revocada. Por favor vuelve a iniciar sesión.', 403);
   }
 
-  const roleName = user.rol?.nombre || 'Administrador Familiar';
+  const roleName = user.rol?.nombre || 'Miembro Familiar';
 
   // Generar nuevos tokens (Rotación)
   const tokenPayload = {

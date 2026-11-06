@@ -1,18 +1,20 @@
-/**
+﻿/**
  * Configuración de roles, vistas permitidas y permisos en FamiCash
  * Vistas disponibles en Frontend:
  * - 'expense': Registro de ingresos, gastos y transferencias (VistaIngresoMonto)
  * - 'summary': Métricas globales, presupuesto, categorías e historial (VistaResumen)
  * - 'accounts': Gestión de cuentas bancarias y saldos (VistaCuentas)
+ * - 'admin': Panel de control exclusivo para el Administrador Familiar (VistaAdmin)
  * - 'profile': Datos del usuario, seguridad, familiares y logout (VistaPerfil)
  */
 
 export const ROLE_CONFIG = {
   'Administrador Familiar': {
     descripcion: 'Acceso total y administración de miembros, presupuestos y cuentas',
-    vistasPermitidas: ['summary', 'expense', 'accounts', 'profile'],
+    vistasPermitidas: ['summary', 'expense', 'accounts', 'admin', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: true,
       puedeGestionarCuentas: true,
       puedeVerResumen: true,
       puedeRegistrarGastos: true,
@@ -21,27 +23,29 @@ export const ROLE_CONFIG = {
     }
   },
   'Esposo / Padre': {
-    descripcion: 'Gestión financiera completa del hogar',
+    descripcion: 'Gestión financiera de gastos, ingresos y cuentas del hogar',
     vistasPermitidas: ['summary', 'expense', 'accounts', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: false,
       puedeGestionarCuentas: true,
       puedeVerResumen: true,
       puedeRegistrarGastos: true,
       puedeEliminarMovimientos: true,
-      puedeGestionarMiembros: true
+      puedeGestionarMiembros: false
     }
   },
   'Esposa / Madre': {
-    descripcion: 'Gestión financiera completa del hogar',
+    descripcion: 'Gestión financiera de gastos, ingresos y cuentas del hogar',
     vistasPermitidas: ['summary', 'expense', 'accounts', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: false,
       puedeGestionarCuentas: true,
       puedeVerResumen: true,
       puedeRegistrarGastos: true,
       puedeEliminarMovimientos: true,
-      puedeGestionarMiembros: true
+      puedeGestionarMiembros: false
     }
   },
   'Hijo / Hija': {
@@ -49,6 +53,7 @@ export const ROLE_CONFIG = {
     vistasPermitidas: ['expense', 'summary', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: false,
       puedeGestionarCuentas: false,
       puedeVerResumen: true,
       puedeRegistrarGastos: true,
@@ -61,6 +66,7 @@ export const ROLE_CONFIG = {
     vistasPermitidas: ['expense', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: false,
       puedeGestionarCuentas: false,
       puedeVerResumen: false,
       puedeRegistrarGastos: true,
@@ -69,10 +75,11 @@ export const ROLE_CONFIG = {
     }
   },
   'Miembro Familiar': {
-    descripcion: 'Registro y consulta de movimientos',
+    descripcion: 'Registro y consulta de movimientos familiares',
     vistasPermitidas: ['expense', 'summary', 'profile'],
     vistaInicial: 'expense',
     permisos: {
+      esAdmin: false,
       puedeGestionarCuentas: false,
       puedeVerResumen: true,
       puedeRegistrarGastos: true,
@@ -82,7 +89,7 @@ export const ROLE_CONFIG = {
   }
 };
 
-const DEFAULT_ROLE_NAME = 'Administrador Familiar';
+const DEFAULT_ROLE_NAME = 'Miembro Familiar';
 
 export function getRoleConfig(roleName) {
   const normalized = roleName?.trim();
