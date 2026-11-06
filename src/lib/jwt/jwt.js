@@ -1,13 +1,13 @@
 import jwt from 'jsonwebtoken';
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'famicash_default_jwt_access_secret_2026';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'famicash_default_jwt_refresh_secret_2026';
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'famicash_dev_access_secret';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'famicash_dev_refresh_secret';
 
-export const ACCESS_TOKEN_EXPIRATION = '5s';
-export const REFRESH_TOKEN_EXPIRATION = '7d';
+export const ACCESS_TOKEN_EXPIRATION = '7d';
+export const REFRESH_TOKEN_EXPIRATION = '30d';
 
-export const ACCESS_COOKIE_MAX_AGE = 5 * 1000; // 15 minutos en ms
-export const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 días en ms
+export const ACCESS_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 días
+export const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 días
 
 export function generateAccessToken(payload) {
   return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRATION });
@@ -20,7 +20,7 @@ export function generateRefreshToken(payload) {
 export function verifyAccessToken(token) {
   try {
     return jwt.verify(token, ACCESS_SECRET);
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -28,7 +28,7 @@ export function verifyAccessToken(token) {
 export function verifyRefreshToken(token) {
   try {
     return jwt.verify(token, REFRESH_SECRET);
-  } catch (err) {
+  } catch {
     return null;
   }
 }

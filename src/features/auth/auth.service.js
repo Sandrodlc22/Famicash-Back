@@ -1,276 +1,85 @@
-﻿import bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 import { prisma } from '../../lib/prisma/prisma.js';
 import { AppError } from '../../lib/errors/app-error.js';
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken
-} from '../../lib/jwt/jwt.js';
-import { getRoleConfig } from './role-views.config.js';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../lib/jwt/jwt.js';
 
-/**
- * Sanitiza los datos del usuario para no exponer información sensible
- */
-function sanitizeUser(user, avatar = null) {
-  const roleName = user.rol?.nombre || 'Miembro Familiar';
-  const roleConfig = getRoleConfig(roleName);
-  const esAdmin = roleName === 'Administrador Familiar' || user.rolId === 1;
+const PERSONAS = ['FAMILIA', 'ANTHONY', 'VANESSA', 'LARA'];
 
-  return {
-    id: user.id,
-    nombre: user.nombre,
-    email: user.email,
-    rol: roleName,
-    rolId: user.rolId,
-    esAdmin,
-    activo: user.activo,
-    avatar: avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=256',
-    vistasPermitidas: roleConfig.vistasPermitidas,
-    vistaInicial: roleConfig.vistaInicial,
-    permisos: {
-      ...roleConfig.permisos,
-      esAdmin
-    },
-    descripcionRol: roleConfig.descripcion
-  };
+export function sanitizeUser(u) {
+  return { id: u.id, nombre: u.nombre, email: u.email, persona: u.persona, activo: u.activo };
 }
 
-/**
- * Registro de un nuevo usuario
- */
-export async function registerUser({ nombre, email, password, rol, avatar }) {
+async function emitirTokens(user) {
+  const payload = { id: user.id, email: user.email, persona: user.persona };
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  await prisma.usuario.update({ where: { id: user.id }, data: { refreshToken } });
+  return { usuario: sanitizeUser(user), accessToken, refreshToken };
+}
+
+export async function registerUser({ nombre, email, password, persona }) {
   if (!nombre?.trim() || !email?.trim() || !password) {
-    throw new AppError('Nombre, correo electrónico y contraseña son obligatorios.', 400);
+    throw new AppError('Nombre, correo y contraseña son obligatorios.', 400);
   }
-
   const cleanEmail = email.trim().toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(cleanEmail)) {
-    throw new AppError('El formato del correo electrónico no es válido.', 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new AppError('Correo electrónico inválido.', 400);
+  if (password.length < 6) throw new AppError('La contraseña debe tener al menos 6 caracteres.', 400);
+  if (await prisma.usuario.findUnique({ where: { email: cleanEmail } })) {
+    throw new AppError('El correo ya está registrado.', 409);
   }
-
-  if (password.length < 6) {
-    throw new AppError('La contraseña debe tener al menos 6 caracteres.', 400);
-  }
-
-  // Verificar si el correo ya existe
-  const existingUser = await prisma.usuario.findUnique({
-    where: { email: cleanEmail }
-  });
-
-  if (existingUser) {
-    throw new AppError('El correo electrónico ya está registrado.', 400);
-  }
-
-  // Si no se envía rol, asignar 'Miembro Familiar' (salvo que sea el primer usuario del sistema)
-  let roleName = rol?.trim();
-  if (!roleName) {
-    const totalUsuarios = await prisma.usuario.count();
-    roleName = totalUsuarios === 0 ? 'Administrador Familiar' : 'Miembro Familiar';
-  }
-
-  let targetRole = await prisma.role.findUnique({
-    where: { nombre: roleName }
-  });
-
-  if (!targetRole) {
-    const roleConfig = getRoleConfig(roleName);
-    targetRole = await prisma.role.create({
-      data: {
-        nombre: roleName,
-        descripcion: roleConfig.descripcion
-      }
-    });
-  }
-
-  // Hashear contraseña
-  const passwordHash = await bcrypt.hash(password, 10);
-
-  // Crear usuario
-  const newUser = await prisma.usuario.create({
+  const user = await prisma.usuario.create({
     data: {
       nombre: nombre.trim(),
       email: cleanEmail,
-      passwordHash,
-      rolId: targetRole.id,
-      activo: true
-    },
-    include: {
-      rol: true
+      passwordHash: await bcrypt.hash(password, 10),
+      persona: PERSONAS.includes(persona) ? persona : 'FAMILIA'
     }
   });
-
-  // Si es un Administrador Familiar o Adulto con permisos de cuenta, crear una cuenta inicial por defecto
-  const roleConfig = getRoleConfig(targetRole.nombre);
-  if (roleConfig.permisos.puedeGestionarCuentas) {
-    await prisma.cuentaBancaria.create({
-      data: {
-        usuarioId: newUser.id,
-        nombre: 'Billetera Efectivo',
-        tipo: 'Efectivo',
-        saldoActual: 0.00,
-        umbralAlertaPct: 70
-      }
-    });
-  }
-
-  // Generar tokens
-  const tokenPayload = {
-    id: newUser.id,
-    email: newUser.email,
-    rol: targetRole.nombre
-  };
-
-  const accessToken = generateAccessToken(tokenPayload);
-  const refreshToken = generateRefreshToken(tokenPayload);
-
-  // Guardar refresh token en la base de datos
-  await prisma.usuario.update({
-    where: { id: newUser.id },
-    data: { refreshToken }
-  });
-
-  return {
-    usuario: sanitizeUser(newUser, avatar),
-    accessToken,
-    refreshToken
-  };
+  return emitirTokens(user);
 }
 
-/**
- * Inicio de sesión de usuario
- */
 export async function loginUser({ email, password }) {
-  if (!email?.trim() || !password) {
-    throw new AppError('Correo electrónico y contraseña son requeridos.', 400);
-  }
-
-  const cleanEmail = email.trim().toLowerCase();
-
-  // Buscar usuario por email con su rol
-  const user = await prisma.usuario.findUnique({
-    where: { email: cleanEmail },
-    include: { rol: true }
-  });
-
-  if (!user || !user.activo) {
+  if (!email?.trim() || !password) throw new AppError('Correo y contraseña son requeridos.', 400);
+  const user = await prisma.usuario.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (!user || !user.activo || !(await bcrypt.compare(password, user.passwordHash))) {
     throw new AppError('Credenciales inválidas. Verifica tu correo o contraseña.', 401);
   }
-
-  // Validar contraseña
-  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isPasswordValid) {
-    throw new AppError('Credenciales inválidas. Verifica tu correo o contraseña.', 401);
-  }
-
-  const roleName = user.rol?.nombre || 'Miembro Familiar';
-
-  // Generar tokens
-  const tokenPayload = {
-    id: user.id,
-    email: user.email,
-    rol: roleName
-  };
-
-  const accessToken = generateAccessToken(tokenPayload);
-  const refreshToken = generateRefreshToken(tokenPayload);
-
-  // Rotación de refresh token: guardar el nuevo token en la BD
-  await prisma.usuario.update({
-    where: { id: user.id },
-    data: { refreshToken }
-  });
-
-  return {
-    usuario: sanitizeUser(user),
-    accessToken,
-    refreshToken
-  };
+  return emitirTokens(user);
 }
 
-/**
- * Renovación de sesión mediante Refresh Token
- */
-export async function refreshUserSession(refreshTokenReceived) {
-  if (!refreshTokenReceived) {
-    throw new AppError('Refresh token no proporcionado.', 401);
-  }
-
-  // Verificar la firma del JWT
-  const decoded = verifyRefreshToken(refreshTokenReceived);
-  if (!decoded || !decoded.id) {
-    throw new AppError('Refresh token inválido o expirado.', 401);
-  }
-
-  // Buscar usuario en BD
-  const user = await prisma.usuario.findUnique({
-    where: { id: decoded.id },
-    include: { rol: true }
-  });
-
-  if (!user || !user.activo) {
-    throw new AppError('Usuario no encontrado o inactivo.', 401);
-  }
-
-  // Comprobar que coincida con el refresh token activo en BD
-  if (user.refreshToken !== refreshTokenReceived) {
-    await prisma.usuario.update({
-      where: { id: user.id },
-      data: { refreshToken: null }
-    });
-    throw new AppError('Sesión inválida o revocada. Por favor vuelve a iniciar sesión.', 403);
-  }
-
-  const roleName = user.rol?.nombre || 'Miembro Familiar';
-
-  // Generar nuevos tokens (Rotación)
-  const tokenPayload = {
-    id: user.id,
-    email: user.email,
-    rol: roleName
-  };
-
-  const newAccessToken = generateAccessToken(tokenPayload);
-  const newRefreshToken = generateRefreshToken(tokenPayload);
-
-  // Actualizar en BD
-  await prisma.usuario.update({
-    where: { id: user.id },
-    data: { refreshToken: newRefreshToken }
-  });
-
-  return {
-    usuario: sanitizeUser(user),
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken
-  };
+export async function refreshUserSession(token) {
+  if (!token) throw new AppError('Sesión no encontrada.', 401);
+  const decoded = verifyRefreshToken(token);
+  if (!decoded?.id) throw new AppError('Sesión expirada.', 401);
+  const user = await prisma.usuario.findUnique({ where: { id: decoded.id } });
+  if (!user || !user.activo) throw new AppError('Usuario no encontrado o inactivo.', 401);
+  return emitirTokens(user);
 }
 
-/**
- * Cierre de sesión (invalidación de refresh token en BD)
- */
 export async function logoutUser(userId) {
   if (userId) {
-    await prisma.usuario.update({
-      where: { id: userId },
-      data: { refreshToken: null }
-    }).catch(() => null);
+    await prisma.usuario.update({ where: { id: userId }, data: { refreshToken: null } }).catch(() => null);
   }
-  return true;
 }
 
-/**
- * Obtener perfil del usuario autenticado
- */
 export async function getCurrentUser(userId) {
-  const user = await prisma.usuario.findUnique({
-    where: { id: userId },
-    include: { rol: true }
-  });
-
-  if (!user || !user.activo) {
-    throw new AppError('Usuario no encontrado.', 404);
-  }
-
+  const user = await prisma.usuario.findUnique({ where: { id: userId } });
+  if (!user || !user.activo) throw new AppError('Usuario no encontrado.', 404);
   return sanitizeUser(user);
+}
+
+export async function updateCurrentUser(userId, { nombre, passwordActual, passwordNueva }) {
+  const user = await prisma.usuario.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('Usuario no encontrado.', 404);
+  const data = {};
+  if (nombre?.trim()) data.nombre = nombre.trim();
+  if (passwordNueva) {
+    if (passwordNueva.length < 6) throw new AppError('La nueva contraseña debe tener al menos 6 caracteres.', 400);
+    if (!(await bcrypt.compare(passwordActual || '', user.passwordHash))) {
+      throw new AppError('La contraseña actual no es correcta.', 400);
+    }
+    data.passwordHash = await bcrypt.hash(passwordNueva, 10);
+  }
+  const updated = await prisma.usuario.update({ where: { id: userId }, data });
+  return sanitizeUser(updated);
 }

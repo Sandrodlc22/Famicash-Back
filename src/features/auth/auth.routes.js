@@ -1,23 +1,14 @@
 import { Router } from 'express';
-import {
-  register,
-  login,
-  refresh,
-  logout,
-  me
-} from './auth.controller.js';
+import * as c from './auth.controller.js';
 import { authenticateToken } from './auth.middleware.js';
 
 const router = Router();
 
-// Rutas públicas de autenticación
-router.post('/register', register);
-router.post('/login', login);
-router.post('/refresh', refresh);
-router.get('/refresh', refresh);
-router.post('/logout', logout);
-
-// Ruta protegida para obtener los datos del usuario logeado y sus vistas
-router.get('/me', authenticateToken, me);
+router.post('/register', c.register);
+router.post('/login', c.login);
+router.post('/refresh', c.refresh);
+router.post('/logout', c.logout);
+router.get('/me', authenticateToken, c.me);
+router.patch('/me', authenticateToken, c.updateMe);
 
 export default router;
