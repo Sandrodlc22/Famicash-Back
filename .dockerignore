@@ -1,0 +1,7 @@
+node_modules
+.git
+.env
+*.log
+*.code-workspace
+MANUAL_USUARIO_FAMICASH.md
+README.md
