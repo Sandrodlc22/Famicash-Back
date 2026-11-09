@@ -272,10 +272,13 @@ async function main() {
   await seedTaxonomia();
   await seedMediosPago();
   await seedUsuarios();
-  if (RUN_DEMO) {
+  // Demo: forzada con --demo, o automática si la BD aún no tiene movimientos (no borra nada real)
+  const totalTx = await prisma.transaccion.count();
+  if (RUN_DEMO || totalTx === 0) {
+    if (!RUN_DEMO) console.log('ℹ️  BD sin movimientos: cargando dataset demo inicial.');
     await seedUltimos4Meses();
   } else {
-    console.log('ℹ️  Dataset demo omitido (usa `npm run db:seed:demo` para cargarlo; borra movimientos existentes).');
+    console.log(`ℹ️  Dataset demo omitido: ya existen ${totalTx} movimientos (usa \`npm run db:seed:demo\` para reemplazarlos).`);
   }
   console.log('🎉 Seed completado con éxito.');
 }
