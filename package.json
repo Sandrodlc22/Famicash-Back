@@ -4,10 +4,19 @@
   "description": "API REST Backend para FamiCash con PostgreSQL",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "setup-db": "node database/setup.js"
+    "postinstall": "prisma generate",
+    "build": "prisma generate",
+    "db:push": "prisma db push --skip-generate",
+    "db:seed": "node prisma/seed.js",
+    "db:seed:demo": "node prisma/seed.js --demo",
+    "db:deploy": "prisma db push --skip-generate && node prisma/seed.js",
+    "db:check": "node src/lib/prisma/check-db.js"
   },
   "keywords": [
     "finance",
@@ -27,9 +36,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.13.3"
-  },
-  "devDependencies": {
+    "pg": "^8.13.3",
     "prisma": "^6.19.3"
   },
   "prisma": {

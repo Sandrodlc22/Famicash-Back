@@ -4,17 +4,22 @@ import { TAXONOMIA, MEDIOS_PAGO, FAVORITOS_INICIALES } from './taxonomia.js';
 
 const prisma = new PrismaClient();
 
+// El dataset demo BORRA transacciones, presupuestos y objetivos.
+// Solo se ejecuta de forma explícita: `npm run db:seed:demo` o SEED_DEMO=true.
+const RUN_DEMO = process.argv.includes('--demo') || process.env.SEED_DEMO === 'true';
+
 async function seedTaxonomia() {
+  // Solo crea lo que falta; nunca modifica registros existentes (update: {}).
   for (const [ci, cat] of TAXONOMIA.entries()) {
     const categoria = await prisma.categoria.upsert({
       where: { codigo: cat.codigo },
-      update: { tipo: cat.tipo, persona: cat.persona, orden: ci + 1, activa: true },
+      update: {},
       create: { codigo: cat.codigo, tipo: cat.tipo, persona: cat.persona, orden: ci + 1 }
     });
     for (const [si, sub] of cat.subcategorias.entries()) {
       const subcategoria = await prisma.subcategoria.upsert({
         where: { categoriaId_codigo: { categoriaId: categoria.id, codigo: sub.codigo } },
-        update: { persona: sub.persona || null, orden: si + 1, activa: true },
+        update: {},
         create: {
           categoriaId: categoria.id,
           codigo: sub.codigo,
@@ -37,7 +42,7 @@ async function seedMediosPago() {
   for (const [i, m] of MEDIOS_PAGO.entries()) {
     await prisma.medioPago.upsert({
       where: { nombre: m.nombre },
-      update: { persona: m.persona, orden: i + 1, activo: true },
+      update: {},
       create: { ...m, orden: i + 1 }
     });
   }
@@ -53,7 +58,7 @@ async function seedUsuarios() {
   for (const u of usuarios) {
     const user = await prisma.usuario.upsert({
       where: { email: u.email },
-      update: { nombre: u.nombre, persona: u.persona, activo: true },
+      update: {},
       create: { ...u, passwordHash }
     });
     const tieneFavs = await prisma.favorito.count({ where: { usuarioId: user.id } });
@@ -263,11 +268,15 @@ async function seedUltimos4Meses() {
 }
 
 async function main() {
-  console.log('🌱 Ejecutando Seed de FamiCash (Últimos 4 meses)...');
+  console.log(`🌱 Ejecutando Seed de FamiCash (${RUN_DEMO ? 'base + DEMO 4 meses' : 'solo datos base, no destructivo'})...`);
   await seedTaxonomia();
   await seedMediosPago();
   await seedUsuarios();
-  await seedUltimos4Meses();
+  if (RUN_DEMO) {
+    await seedUltimos4Meses();
+  } else {
+    console.log('ℹ️  Dataset demo omitido (usa `npm run db:seed:demo` para cargarlo; borra movimientos existentes).');
+  }
   console.log('🎉 Seed completado con éxito.');
 }
 

@@ -14,10 +14,11 @@ import presupuestosRoutes from './features/presupuestos/presupuestos.routes.js';
 import objetivosRoutes from './features/objetivos/objetivos.routes.js';
 import excelRoutes from './features/excel/excel.routes.js';
 import { errorHandler } from './lib/middleware/error-handler.js';
-import { prisma } from './lib/prisma/prisma.js';
+import { prisma, connectWithRetry } from './lib/prisma/prisma.js';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = '0.0.0.0'; // Requerido en Railway/Docker para aceptar tráfico externo
 const isProduction = process.env.NODE_ENV === 'production';
 
 // CORS: en producción solo los orígenes de CLIENT_URL (separados por coma);
@@ -52,7 +53,7 @@ app.get('/api/health', async (req, res) => {
   } catch {
     db = 'error';
   }
-  res.json({ status: 'ok', db, app: 'FamiCash API', version: '2.0.0', timestamp: new Date().toISOString() });
+  res.status(db === 'ok' ? 200 : 503).json({ status: db === 'ok' ? 'ok' : 'degraded', db, app: 'FamiCash API', version: '2.0.0', timestamp: new Date().toISOString() });
 });
 
 // Rutas públicas
@@ -72,6 +73,29 @@ app.use('/api/excel', excelRoutes);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`FamiCash API v2 escuchando en http://localhost:${PORT}/api`);
-});
+async function start() {
+  console.log(`[APP] Iniciando FamiCash API (NODE_ENV=${process.env.NODE_ENV || 'development'}, CORS=${allowedOrigins.join(', ')})`);
+  try {
+    await connectWithRetry();
+  } catch (err) {
+    console.error('[APP] No se pudo conectar a la base de datos. Abortando.', err.message);
+    process.exit(1);
+  }
+
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`FamiCash API v2 escuchando en http://${HOST}:${PORT}/api`);
+  });
+
+  const shutdown = async (signal) => {
+    console.log(`[APP] ${signal} recibido, cerrando...`);
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+start();
